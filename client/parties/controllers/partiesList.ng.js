@@ -1,11 +1,11 @@
 angular.module('socially').controller('PartiesListCtrl',
-    function($scope, $meteor, $rootScope) {
+    function($scope, $meteor, $rootScope, $state) {
 
       $scope.page = 1;
       $scope.perPage = 3;
       $scope.sort = { name: 1 };
         $scope.orderProperty = '1';
-        $scope.$meteorSubscribe('users');
+        $scope.users = $meteor.collection(Meteor.users, false).subscribe('users');
 
         $scope.parties = $meteor.collection(function() {
             return Parties.find({}, {
@@ -20,6 +20,19 @@ angular.module('socially').controller('PartiesListCtrl',
                 sort: $scope.getReactively('sort')
             }, $scope.getReactively('search')).then(function(){
                 $scope.partiesCount = $meteor.object(Counts ,'numberOfParties', false);
+                $scope.parties.forEach( function (party) {
+                    party.onClicked = function () {
+                        $state.go('partyDetails', {partyId: party._id});
+                    };
+                });
+
+                $scope.map = {
+                    center: {
+                        latitude: 45,
+                        longitude: -73
+                    },
+                    zoom: 8
+                };
             });
         });
 
@@ -40,6 +53,26 @@ angular.module('socially').controller('PartiesListCtrl',
             if ($scope.orderProperty)
                 $scope.sort = {name: parseInt($scope.orderProperty)};
         });
+
+
+        $scope.outstandingInvitations = function (party) {
+            return _.filter($scope.users, function (user) {
+                return (_.contains(party.invited, user._id) &&
+                !_.findWhere(party.rsvps, {user: user._id}));
+            });
+        };
+
+        $scope.rsvp = function(partyId, rsvp){
+            $meteor.call('rsvp', partyId, rsvp).then(
+                function(data){
+                    console.log('success responding', data);
+                },
+                function(err){
+                    console.log('failed', err);
+                }
+            );
+        };
+
 
         $scope.getUserById = function(userId){
             return Meteor.users.findOne(userId);
